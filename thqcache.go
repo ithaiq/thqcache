@@ -18,6 +18,7 @@ func (f GetterFunc) Get(key string) ([]byte, error) {
 	return f(key)
 }
 
+//Group 负责与外部交互控制主流程
 type Group struct {
 	name   string
 	getter Getter

@@ -1,6 +1,6 @@
 package thqcache
 
-//ByteValue 数据格式封装
+//ByteValue 缓存值的数据格式封装
 type ByteValue struct {
 	b []byte
 }
