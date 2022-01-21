@@ -24,7 +24,7 @@ func TestCache_RemoveOldest(t *testing.T) {
 	k1, k2, k3 := "key1", "key", "k3"
 	v1, v2, v3 := "value1", "value", "v3"
 	maxLen := len(k1 + k2 + v1 + v2)
-	keys := make([]string, 0)
+	var keys []string
 	callback := func(key string, value Value) {
 		keys = append(keys, key)
 	}
@@ -32,9 +32,9 @@ func TestCache_RemoveOldest(t *testing.T) {
 	lru.Add(k1, String(v1))
 	lru.Add(k2, String(v2))
 	lru.Add(k3, String(v3))
-	v, ok := lru.Get(k1)
+	_, ok := lru.Get(k1)
 	require.False(t, ok)
-	v, ok = lru.Get(k2)
+	v, ok := lru.Get(k2)
 	require.True(t, ok)
 	require.Equal(t, v, String(v2))
 	require.Equal(t, 2, lru.Len())

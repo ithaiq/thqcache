@@ -44,7 +44,7 @@ func NewGroup(name string, maxBytes int64, getter Getter) *Group {
 		name:   name,
 		getter: getter,
 		c:      cache{maxBytes: maxBytes},
-		loader: new(single.Group),
+		loader: &single.Group{},
 	}
 	groups[name] = g
 	return g
@@ -64,7 +64,7 @@ func (this *Group) RegisterPeers(peers PeerPicker) {
 }
 
 func (this *Group) Get(key string) (ByteValue, error) {
-	if key == "" {
+	if len(key) == 0 {
 		return ByteValue{}, fmt.Errorf("key is empty")
 	}
 	if v, ok := this.c.get(key); ok {

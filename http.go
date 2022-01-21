@@ -2,9 +2,9 @@ package thqcache
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"github.com/ithaiq/thqcache/consistenthash"
 	pb "github.com/ithaiq/thqcache/proto"
+	"google.golang.org/protobuf/proto"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	defaultBasePath = "/_thqcache/"
-	defaultReplicas = 50
+	_defaultBasePath = "/_thqcache/"
+	_defaultReplicas = 50
 )
 
 //HTTPPool HTTP服务端
@@ -29,7 +29,8 @@ type HTTPPool struct {
 
 func NewHTTPPool(self string) *HTTPPool {
 	return &HTTPPool{
-		self: self, basePath: defaultBasePath,
+		self:     self,
+		basePath: _defaultBasePath,
 	}
 }
 
@@ -63,7 +64,7 @@ func (this *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Write(body)
+	_, _ = w.Write(body)
 }
 
 func (this *HTTPPool) Logf(format string, v ...interface{}) {
@@ -73,7 +74,7 @@ func (this *HTTPPool) Logf(format string, v ...interface{}) {
 func (this *HTTPPool) Set(peers ...string) {
 	this.mu.Lock()
 	defer this.mu.Unlock()
-	this.peers = consistenthash.New(defaultReplicas, nil)
+	this.peers = consistenthash.New(_defaultReplicas, nil)
 	this.peers.Add(peers...)
 	this.httpGetters = make(map[string]*HttpGetter, len(peers))
 	for _, peer := range peers {

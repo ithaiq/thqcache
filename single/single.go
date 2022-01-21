@@ -9,6 +9,7 @@ import "sync"
 //缓存穿透：查询一个不存在的数据，因为不存在则不会写到缓存中，所以每次都会去请求 DB，如果瞬间流量过大，穿透到 DB，导致宕机。
 
 //目的所有用户都能收到结果，请求是在服务端阻塞的，等待某一个查询返回结果的，其余请求直接复用这个结果了
+
 type call struct {
 	wg  sync.WaitGroup
 	val interface{}
@@ -32,7 +33,7 @@ func (this *Group) Do(key string, fn func() (interface{}, error)) (interface{}, 
 		c.wg.Wait() // 如果请求正在进行中，则等待
 		return c.val, c.err
 	}
-	c := new(call)
+	c := &call{}
 	c.wg.Add(1)
 	this.m[key] = c
 	this.mu.Unlock()
