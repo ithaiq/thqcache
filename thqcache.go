@@ -2,6 +2,7 @@ package thqcache
 
 import (
 	"fmt"
+	"github.com/ithaiq/thqcache/single"
 	"sync"
 )
 
@@ -24,6 +25,7 @@ type Group struct {
 	getter Getter
 	c      cache
 	peers  PeerPicker
+	loader *single.Group
 }
 
 var (
@@ -41,6 +43,7 @@ func NewGroup(name string, maxBytes int64, getter Getter) *Group {
 		name:   name,
 		getter: getter,
 		c:      cache{maxBytes: maxBytes},
+		loader: new(single.Group),
 	}
 	groups[name] = g
 	return g
@@ -71,14 +74,21 @@ func (this *Group) Get(key string) (ByteValue, error) {
 }
 
 func (this *Group) load(key string) (value ByteValue, err error) {
-	if this.peers != nil {
-		if peer, ok := this.peers.PickPeer(key); ok {
-			if value, err = this.getFromPeer(peer, key); err == nil {
-				return value, nil
+	data, err := this.loader.Do(key, func() (interface{}, error) {
+		if this.peers != nil {
+			if peer, ok := this.peers.PickPeer(key); ok {
+				if value, err = this.getFromPeer(peer, key); err == nil {
+					return value, nil
+				}
 			}
 		}
+		return this.loadLocal(key)
+	})
+	if err == nil {
+		return data.(ByteValue), nil
 	}
-	return this.loadLocal(key)
+	return
+
 }
 
 func (this *Group) getFromPeer(peer PeerGetter, key string) (ByteValue, error) {
