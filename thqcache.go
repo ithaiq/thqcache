@@ -2,6 +2,7 @@ package thqcache
 
 import (
 	"fmt"
+	pb "github.com/ithaiq/thqcache/proto"
 	"github.com/ithaiq/thqcache/single"
 	"sync"
 )
@@ -92,11 +93,16 @@ func (this *Group) load(key string) (value ByteValue, err error) {
 }
 
 func (this *Group) getFromPeer(peer PeerGetter, key string) (ByteValue, error) {
-	bytes, err := peer.Get(this.name, key)
+	req := &pb.Request{
+		Group: this.name,
+		Key:   key,
+	}
+	res := &pb.Response{}
+	err := peer.Get(req, res)
 	if err != nil {
 		return ByteValue{}, err
 	}
-	return ByteValue{b: bytes}, nil
+	return ByteValue{b: res.Value}, nil
 }
 
 //loadLocal 加载本地数据到缓存
