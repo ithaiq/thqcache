@@ -15,6 +15,6 @@ func HTTPServer(t *testing.T) {
 		return nil, fmt.Errorf("%s not exist", key)
 	}))
 	addr := "localhost:8888"
-	peers := NewHTTPPoll(addr)
+	peers := NewHTTPPool(addr)
 	log.Fatal(http.ListenAndServe(addr, peers))
 }

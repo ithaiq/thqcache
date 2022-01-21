@@ -23,6 +23,7 @@ type Group struct {
 	name   string
 	getter Getter
 	c      cache
+	peers  PeerPicker
 }
 
 var (
@@ -51,8 +52,11 @@ func GetGroup(name string) *Group {
 	return groups[name]
 }
 
-func (this *Group) Add(key string, value ByteValue) {
-	this.c.add(key, value)
+func (this *Group) RegisterPeers(peers PeerPicker) {
+	if this.peers != nil {
+		panic("RegisterPeerPicker called more than once")
+	}
+	this.peers = peers
 }
 
 func (this *Group) Get(key string) (ByteValue, error) {
@@ -62,7 +66,27 @@ func (this *Group) Get(key string) (ByteValue, error) {
 	if v, ok := this.c.get(key); ok {
 		return v, nil
 	}
+	//return this.loadLocal(key)
+	return this.load(key)
+}
+
+func (this *Group) load(key string) (value ByteValue, err error) {
+	if this.peers != nil {
+		if peer, ok := this.peers.PickPeer(key); ok {
+			if value, err = this.getFromPeer(peer, key); err == nil {
+				return value, nil
+			}
+		}
+	}
 	return this.loadLocal(key)
+}
+
+func (this *Group) getFromPeer(peer PeerGetter, key string) (ByteValue, error) {
+	bytes, err := peer.Get(this.name, key)
+	if err != nil {
+		return ByteValue{}, err
+	}
+	return ByteValue{b: bytes}, nil
 }
 
 //loadLocal 加载本地数据到缓存
@@ -72,6 +96,6 @@ func (this *Group) loadLocal(key string) (ByteValue, error) {
 		return ByteValue{}, err
 	}
 	value := ByteValue{b: cloneBytes(bytes)}
-	this.Add(key, value)
+	this.c.add(key, value)
 	return value, nil
 }

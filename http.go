@@ -2,25 +2,36 @@ package thqcache
 
 import (
 	"fmt"
+	"github.com/ithaiq/thqcache/consistenthash"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
+	"sync"
 )
 
-const defaultBasePath = "/_thqcache/"
+const (
+	defaultBasePath = "/_thqcache/"
+	defaultReplicas = 50
+)
 
-type HTTPPoll struct {
-	self     string
-	basePath string
+//HTTPPool HTTP服务端
+type HTTPPool struct {
+	self        string
+	basePath    string
+	mu          sync.RWMutex
+	peers       *consistenthash.Map
+	httpGetters map[string]*HttpGetter
 }
 
-func NewHTTPPoll(self string) *HTTPPoll {
-	return &HTTPPoll{
+func NewHTTPPool(self string) *HTTPPool {
+	return &HTTPPool{
 		self: self, basePath: defaultBasePath,
 	}
 }
 
-func (this *HTTPPoll) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (this *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(r.URL.Path, this.basePath) {
 		panic("HTTPPool serving unexpected path: " + r.URL.Path)
 	}
@@ -48,6 +59,57 @@ func (this *HTTPPoll) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write(value.ByteSlice())
 }
 
-func (this *HTTPPoll) Logf(format string, v ...interface{}) {
+func (this *HTTPPool) Logf(format string, v ...interface{}) {
 	log.Printf("[Server %s] %s", this.self, fmt.Sprintf(format, v...))
 }
+
+func (this *HTTPPool) Set(peers ...string) {
+	this.mu.Lock()
+	defer this.mu.Unlock()
+	this.peers = consistenthash.New(defaultReplicas, nil)
+	this.peers.Add(peers...)
+	this.httpGetters = make(map[string]*HttpGetter, len(peers))
+	for _, peer := range peers {
+		this.httpGetters[peer] = &HttpGetter{baseUrl: peer + this.basePath}
+	}
+}
+
+func (this *HTTPPool) PickPeer(key string) (PeerGetter, bool) {
+	this.mu.Lock()
+	defer this.mu.Unlock()
+	peer := this.peers.Get(key)
+	if peer != "" && peer != this.self {
+		this.Logf("Pick peer %s", peer)
+		return this.httpGetters[peer], true
+	}
+	return nil, false
+}
+
+var _ PeerPicker = (*HTTPPool)(nil)
+
+//HttpGetter 封装http获取缓存
+type HttpGetter struct {
+	baseUrl string
+}
+
+func (h *HttpGetter) Get(group string, key string) ([]byte, error) {
+	u := fmt.Sprintf("%v%v/%v", h.baseUrl, url.QueryEscape(group), url.QueryEscape(key))
+	log.Println(u)
+	res, err := http.Get(u)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned: %v", res.Status)
+	}
+
+	bytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body: %v", err)
+	}
+	return bytes, nil
+}
+
+var _ PeerGetter = (*HttpGetter)(nil)
